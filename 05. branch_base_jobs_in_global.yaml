@@ -1,0 +1,42 @@
+### File name will be ".gitlab-ci.yml"
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: never
+    - when: always
+
+
+stages:
+  - test
+  - build
+  - push
+  - deploy
+
+run_test:
+  stage: test
+  before_script:
+    - echo "This job will complete before 'running test' "
+  script:
+    - echo "running test"
+  after_script:
+    - echo "This job will complete after 'running test' "
+
+build_image:
+  stage: build
+  script:
+    - echo "Building the docker images"
+    - echo "Tagging the docker images"
+
+
+push_image:
+  stage: build
+  needs:      # depends on. If "build_image" job is failed, "push_image" job is skipped.
+    - build_image
+  script:
+    - echo "Logging the docker images"
+    - echo "Pushing docker images"
+
+deployment:
+  stage: deploy
+  script:
+    - echo "Initializing deployment "
