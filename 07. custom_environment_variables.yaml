@@ -1,0 +1,52 @@
+### File name will be ".gitlab-ci.yml"
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"   # Ref: https://docs.gitlab.com/ee/ci/yaml/workflow.html
+      when: never
+    - when: always
+
+
+variables:
+  MICRO_SERVICE: "test"   # Assign custom variables
+
+
+stages:
+  - test
+  - build
+  - push
+  - deploy
+
+run_test:
+  stage: test
+  before_script:
+    - echo "This job will complete before $MICRO_SERVICE "
+  script:
+    - echo "running test"
+  after_script:
+    - echo "This job will complete after 'running test' "
+
+build_image:
+  only:
+    - main
+  stage: build
+  script:
+    - echo "Building the docker images"
+    - echo "Tagging the docker images"
+
+
+push_image:
+  only:
+    - main
+  stage: build
+  needs:      # depends on. If "build_image" job is failed, "push_image" job is skipped.
+    - build_image
+  script:
+    - echo "Logging the docker images"
+    - echo "Pushing docker images"
+
+deployment:
+  only:
+    - main
+  stage: deploy
+  script:
+    - echo "Initializing deployment "
