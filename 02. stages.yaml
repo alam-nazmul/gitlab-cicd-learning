@@ -1,0 +1,28 @@
+### File name will be ".gitlab-ci.yml"
+
+stages:
+  - test
+  - build
+  - push
+
+run_test:
+  stage: test
+  before_script:
+    - echo "This job will complete before 'running test' "
+  script:
+    - echo "running test"
+  after_script:
+    - echo "This job will complete after 'running test' "
+
+build_image:
+  stage: build
+  script:
+    - echo "Building the docker images"
+    - echo "Tagging the docker images"
+
+
+push_image:
+  stage: push
+  script:
+    - echo "Logging the docker images"
+    - echo "Pushing docker images"
