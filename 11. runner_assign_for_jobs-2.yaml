@@ -1,0 +1,66 @@
+### File name will be ".gitlab-ci.yml"
+image: node:17-alpine   # This docker image will be used for every single jobs for this project
+
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"   # Ref: https://docs.gitlab.com/ee/ci/yaml/workflow.html
+      when: never
+    - when: always
+
+
+variables:
+  MICRO_SERVICE: "test"   # Assign custom variables
+
+
+stages:
+  - test
+  - build
+  - push
+  - deploy
+
+run_test:
+  tags:
+    - runner-2      # This runner is for "docker" executor
+  image: nginx      # You can assign an exception docker image in a job
+  stage: test
+  before_script:
+    - echo "This job will complete before $MICRO_SERVICE "
+    - nginx -v
+  script:
+    - echo "running test"
+  after_script:
+    - echo "This job will complete after 'running test' "
+
+build_image:
+  tags:
+    - test-runner-1   # This runner is for "shell" executor
+  only:
+    - main
+  stage: build
+  script:
+    - echo "Building the docker images"
+    - echo "Tagging the docker images"
+    - docker pull ubuntu
+
+
+push_image:
+  tags:
+    - runner-2
+  only:
+    - main
+  stage: build
+  needs:      # depends on. If "build_image" job is failed, "push_image" job is skipped.
+    - build_image
+  script:
+    - echo "Logging the docker images"
+    - echo "Pushing docker images"
+
+deployment:
+  tags:
+    - runner-2
+  only:
+    - main
+  stage: deploy
+  script:
+    - echo "Initializing deployment "
