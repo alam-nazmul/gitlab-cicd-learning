@@ -1,3 +1,5 @@
+## How to install and setup a Gitlab-runner
+
 ### Add the official GitLab repository:
 ```angular2html
 curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh" | sudo bash
