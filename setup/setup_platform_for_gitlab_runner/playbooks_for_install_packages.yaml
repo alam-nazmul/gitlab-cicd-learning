@@ -62,7 +62,7 @@
         state: present
       notify: Enable and Restart the docker service
 
-    - name: Add 'almalinux' user to the 'docker' group
+    - name: Add 'gitlab-runner' user to the 'docker' group
       user:
         name: gitlab-runner
         groups: docker
