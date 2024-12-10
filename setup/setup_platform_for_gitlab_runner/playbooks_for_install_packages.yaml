@@ -1,0 +1,83 @@
+---
+- name: Install packages for gitlab-runner vm
+  hosts: gitlab-runner
+  gather_facts: yes
+  tasks:
+
+    - name: Update the packages
+      dnf:
+        update_cache: yes
+
+    - name: Install Misc. packages
+      dnf:
+        name:
+          - telnet
+          - vim
+          - nano
+          - zip
+          - unzip
+          - curl
+          - wget
+          - ca-certificates
+          - gnupg2
+        state: present
+
+    - name: Install Nginx
+      dnf:
+        name:
+          - nginx
+        state: present
+      notify: Enable and restart Nginx service
+
+    - name: Install Java-17
+      dnf:
+        name:
+          - java-17-openjdk
+          - java-17-openjdk-devel
+        state: present
+
+    - name: Install NPM package
+      dnf:
+        name:
+          - npm
+        state: present
+
+    - name: Add Docker CE repository
+      yum_repository:
+        name: docker-ce
+        description: Docker CE repository
+        baseurl: https://download.docker.com/linux/centos/9/x86_64/stable
+        enabled: yes
+        gpgcheck: yes
+        gpgkey: https://download.docker.com/linux/centos/gpg
+
+
+    - name: Install Docker packages
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+      notify: Enable and Restart the docker service
+
+    - name: Add 'almalinux' user to the 'docker' group
+      user:
+        name: gitlab-runner
+        groups: docker
+        append: yes
+
+
+  handlers:
+    - name: Enable and restart Nginx service
+      service:
+        name: nginx
+        enabled: yes
+        state: restarted
+
+    - name: Enable and Restart the docker service
+      service:
+        name: docker
+        enabled: yes
+        state: restarted
