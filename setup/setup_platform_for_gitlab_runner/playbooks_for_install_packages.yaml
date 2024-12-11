@@ -1,5 +1,5 @@
 ---
-- name: Install packages for gitlab-runner vm
+- name: Install packages for gitlab-runner vm where OS is Almalinux
   hosts: gitlab-runner
   gather_facts: yes
   tasks:
