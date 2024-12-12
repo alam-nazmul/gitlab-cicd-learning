@@ -46,7 +46,7 @@ build_image:
 
 push_image:
   tags:
-    - runner-2
+    - test-runner-1
   only:
     - main
   stage: build
@@ -54,6 +54,7 @@ push_image:
     - build_image
   script:
     - echo "Logging the docker images"
+    - docker pull ubuntu
     - echo "Pushing docker images"
 
 deployment:
