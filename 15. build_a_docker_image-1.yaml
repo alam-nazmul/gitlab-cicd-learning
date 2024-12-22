@@ -1,0 +1,46 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"   # Ref: https://docs.gitlab.com/ee/ci/yaml/workflow.html
+      when: never
+    - when: always
+
+stages:
+  - test
+  - build
+
+run_unit_test:
+  image: node:17-alpine3.14
+  stage: test
+  tags:
+    - runner-2
+  before_script:
+    - cd app
+    - npm install
+  script:
+    - npm test
+  artifacts:
+    when: always    # Report will visible for fail and pass case
+    paths:
+      - app/junit.xml   # Test's result path
+    reports:
+      junit: app/junit.xml    # Report path
+
+
+build_image:
+  stage: build
+  tags:
+    - test-runner-1
+  script:
+    - docker build . -f Dockerfile -t test-gitlab-runner.com/test/node-js-app:v1.0.5
+
+
+push_image:
+  stage: build
+  needs:
+    - build_image
+  tags:
+    - test-runner-1
+  before_script:
+    - docker login test-gitlab-runner.com
+  script:
+    - docker push test-gitlab-runner.com/test/node-js-app:v1.0.5
