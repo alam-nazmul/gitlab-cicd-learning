@@ -68,6 +68,26 @@
         groups: docker
         append: yes
 
+    - name: Configure for the local registry
+      copy:
+        src: ./dependency_files/daemon.json
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+      notify: Enable and Restart the docker service
+
+
+    - name: Modify the "/etc/hosts" file
+      copy:
+        src: ./dependency_files/hosts
+        dest: /etc/hosts
+        backup: yes
+        owner: root
+        group: root
+        mode: '0644'
+
 
   handlers:
     - name: Enable and restart Nginx service
