@@ -1,0 +1,75 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"   # Ref: https://docs.gitlab.com/ee/ci/yaml/workflow.html
+      when: never
+    - when: always
+variables:
+  IMAGE_NAME: $NODE_IMAGE/$DEV_ENV
+  REGISTRY_USER: admin
+  REGISTRY_PASSWORD: Harbor12345
+  GITLAB_REPO: test-gitlab-runner.com
+  USERNAME_DEV_SERVER: almalinux
+  IP_DEV_SERVER: 172.16.7.239
+
+
+stages:
+  - test
+  - build
+  - deploy
+
+run_unit_test:
+  image: node:17-alpine3.14
+  stage: test
+  tags:
+    - runner-2
+  before_script:
+    - cd app
+    - npm install
+  script:
+    - npm test
+  artifacts:
+    when: always    # Report will visible for fail and pass case
+    paths:
+      - app/junit.xml   # Test's result path
+    reports:
+      junit: app/junit.xml    # Report path
+
+
+build_image:
+  variables:
+    NODE_IMAGE: test-gitlab-runner.com/test/node-js-app
+    DEV_ENV: dev
+  stage: build
+  tags:
+    - test-runner-1
+  script:
+    - docker build . -f Dockerfile -t $IMAGE_NAME:v1.0.10
+
+
+push_image:
+  variables:
+    NODE_IMAGE: test-gitlab-runner.com/test/node-js-app
+    DEV_ENV: dev
+
+  stage: build
+  needs:
+    - build_image
+  tags:
+    - test-runner-1
+  before_script:
+    - docker login -u $REGISTRY_USER -p $REGISTRY_PASSWORD $GITLAB_REPO
+  script:
+    - docker push $IMAGE_NAME:v1.0.12
+
+deploy_to_dev:
+  only:
+    - main
+  variables:
+    EXPOSED_PORT: 3000
+    CONTAINER_PORT: 3000
+  stage: deploy
+  tags:
+    - test-runner-1
+  script:
+    - ssh almalinux@172.16.7.239 "
+        docker run -d -p 8979:80 ngnix"
