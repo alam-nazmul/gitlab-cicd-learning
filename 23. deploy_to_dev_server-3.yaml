@@ -64,6 +64,6 @@ deploy_to_dev:
   tags:
     - test-runner-1
   script:
-    - ssh almalinux@$IP_DEV_SERVER "
+    - ssh -o StrictHostKeyChecking=no $USERNAME_DEV_SERVER@$IP_DEV_SERVER "
       docker login -u $REGISTRY_USER -p $REGISTRY_PASSWORD $GITLAB_REPO &&
       docker run -d -p $EXPOSED_PORT:$CONTAINER_PORT $IMAGE_NAME:v1.0.17"
