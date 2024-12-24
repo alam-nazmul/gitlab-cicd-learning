@@ -72,12 +72,6 @@
         - { username: "gitlab-runner"}
       tags: add secondary group
 
-#    - name: Add 'gitlab-runner' user to the 'docker' group
-#      user:
-#        name: gitlab-runner
-#        groups: docker
-#        append: yes
-
     - name: Configure for the local registry
       copy:
         src: ./dependency_files/daemon.json
