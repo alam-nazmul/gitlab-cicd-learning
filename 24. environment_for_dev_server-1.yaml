@@ -1,0 +1,72 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"   # Ref: https://docs.gitlab.com/ee/ci/yaml/workflow.html
+      when: never
+    - when: always
+variables:
+  NODE_IMAGE: test-gitlab-runner.com/test/node-js-app
+  DEV_ENV: dev
+  IMAGE_NAME: $NODE_IMAGE/$DEV_ENV
+  REGISTRY_USER: admin
+  REGISTRY_PASSWORD: Harbor12345
+  GITLAB_REPO: test-gitlab-runner.com
+  USERNAME_DEV_SERVER: almalinux
+  IP_DEV_SERVER: 172.16.7.239
+
+
+stages:
+  - test
+  - build
+  - deploy
+
+run_unit_test:
+  image: node:17-alpine3.14
+  stage: test
+  tags:
+    - runner-2
+  before_script:
+    - cd app
+    - npm install
+  script:
+    - npm test
+  artifacts:
+    when: always    # Report will visible for fail and pass case
+    paths:
+      - app/junit.xml   # Test's result path
+    reports:
+      junit: app/junit.xml    # Report path
+
+
+build_image:
+  stage: build
+  tags:
+    - test-runner-1
+  script:
+    - docker build . -f Dockerfile -t $IMAGE_NAME:v1.0.17
+
+
+push_image:
+  stage: build
+  needs:
+    - build_image
+  tags:
+    - test-runner-1
+  before_script:
+    - docker login -u $REGISTRY_USER -p $REGISTRY_PASSWORD $GITLAB_REPO
+  script:
+    - docker push $IMAGE_NAME:v1.0.17
+
+deploy_to_dev:
+  variables:
+    EXPOSED_PORT: 3000
+    CONTAINER_PORT: 3000
+  stage: deploy
+  tags:
+    - test-runner-1
+  script:
+    - ssh -o StrictHostKeyChecking=no $USERNAME_DEV_SERVER@$IP_DEV_SERVER "
+      docker login -u $REGISTRY_USER -p $REGISTRY_PASSWORD $GITLAB_REPO &&
+      docker run -d -p $EXPOSED_PORT:$CONTAINER_PORT $IMAGE_NAME:v1.0.17"
+  environment:    #Successive report with endpoint output
+    name: deployment    # Name of environment
+    url: http://172.16.7.239:3000/    # Endpoint of environment

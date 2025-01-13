@@ -1,7 +1,7 @@
 ---
 - name: Install packages for gitlab-runner vm where OS is Almalinux
   hosts: gitlab-runner
-  gather_facts: yes
+  gather_facts: false
   tasks:
 
     - name: Update the packages
@@ -62,11 +62,35 @@
         state: present
       notify: Enable and Restart the docker service
 
-    - name: Add 'gitlab-runner' user to the 'docker' group
+    - name: Add 'gitlab-runner' and 'almalinux' users to the 'docker' group
       user:
-        name: gitlab-runner
+        name: "{{ item.username}}"
         groups: docker
         append: yes
+      loop:
+        - { username: "almalinux"}
+        - { username: "gitlab-runner"}
+      tags: add secondary group
+
+    - name: Configure for the local registry
+      copy:
+        src: ./dependency_files/daemon.json
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+      notify: Enable and Restart the docker service
+
+
+    - name: Modify the "/etc/hosts" file
+      copy:
+        src: ./dependency_files/hosts
+        dest: /etc/hosts
+        backup: yes
+        owner: root
+        group: root
+        mode: '0644'
 
 
   handlers:
