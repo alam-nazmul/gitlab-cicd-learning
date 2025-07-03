@@ -1,0 +1,7 @@
+services:
+  app:
+    image: test-gitlab-runner.com/test-cicd/my-image:1.1.45
+    restart: always
+    container_name: node_app
+    ports:
+      - "3000:3000"

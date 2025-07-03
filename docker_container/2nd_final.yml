@@ -1,0 +1,125 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: always
+    - when: never
+
+
+variables:
+  CI_REGISTRY_NAME: test-gitlab-runner.com
+  IMAGE_NAME: node_app
+  IMAGE_VERSION: v1
+  DC_IMAGE_NAME: $CI_REGISTRY_NAME/$CI_PROJECT_NAME/$IMAGE_NAME
+
+
+stages:
+  - test
+  - build
+  - push
+  - deploy
+
+run_unit_test:
+  tags:
+    - test-runner-1
+  stage: test
+  image: node:17-alpine3.14
+  before_script:
+    - cd app
+    - npm install
+  script:
+    - npm test
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    paths:
+      - app/node_modules/
+    policy: push
+  artifacts:
+    when: always
+    reports:
+      junit: app/junit.xml
+    paths:
+      - app/junit.xml
+
+
+run_list_test:
+  tags:
+    - test-runner-1
+  stage: test
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    paths:
+      - app/node_modules/
+    policy: pull
+  image: node:17-alpine3.14
+  before_script:
+    - cd app
+    - npm install
+  script:
+    - echo "running lint test"
+
+sast:
+  stage: test
+
+build_image:
+  tags:
+    - test-runner-1
+  stage: build
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY_NAME
+    - export PACKAGE_JSON_VERSION=$(cat app/package.json | jq -r '.version')
+    - export APP_VERSION=$PACKAGE_JSON_VERSION.$CI_PIPELINE_IID
+    - echo "APP_VERSION=$APP_VERSION" > build.env
+  script:
+    - docker build -t $CI_REGISTRY_NAME/$CI_PROJECT_NAME/$IMAGE_NAME:$APP_VERSION .
+  artifacts:
+    reports:
+      dotenv: build.env
+
+
+push_image:
+  tags:
+    - test-runner-1
+  stage: push
+  needs:
+    - build_image
+  dependencies:
+    - build_image
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY_NAME
+  script:
+    - docker push $CI_REGISTRY_NAME/$CI_PROJECT_NAME/$IMAGE_NAME:$APP_VERSION
+
+
+deployment:
+  variables:
+    RUNNER_NAME: gitlab-runner
+    RUNNER_IP: 172.16.7.239
+    CONTAINER_NAME: node_app
+    INTERNAL_PORT: 3000
+    EXPOSE_PORT: 3000
+  tags:
+    - test-runner-1
+  stage: deploy
+  needs:
+    - build_image
+    - push_image
+  dependencies:
+    - build_image
+  before_script:
+    - scp -o StrictHostKeyChecking=no ./docker-compose.yaml $RUNNER_NAME@$RUNNER_IP:/tmp/docker-compose.yaml
+  script:
+    - ssh -o StrictHostKeyChecking=no $RUNNER_NAME@$RUNNER_IP "
+
+      export DC_IMAGE_NAME=$DC_IMAGE_NAME &&
+      export IMAGE_VERSION=$APP_VERSION &&
+
+      docker pull $CI_REGISTRY_NAME/$CI_PROJECT_NAME/$IMAGE_NAME:$IMAGE_VERSION &&
+      docker-compose -f /tmp/docker-compose.yaml down &&
+      docker-compose -f /tmp/docker-compose.yaml up -d"
+  environment:
+    name: development
+    url: http://172.16.7.239:3000/
+
+
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
