@@ -1,0 +1,85 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: never
+    - when: always
+
+variables:
+    IMAGE_NAME: $REGISTRY_URL/test-cicd/my-image
+    IMAGE_VERSION: 1.1.45
+    DEV_USER_NAME: gitlab-runner
+    DEV_HOST_IP: 172.16.7.239
+
+stages:
+  - test
+  - build
+  - push
+  - deploy
+
+
+run_unit_test:
+  tags:
+    - docker
+  image:
+      name: node:17-alpine3.14
+      pull_policy: if-not-present
+  stage: test
+  before_script:
+    - cd app
+    - npm install
+  script:
+    - npm test
+    - echo "Unit tests completed successfully"
+  artifacts:
+      when: always
+      paths:
+          - app/junit.xml
+      reports:
+          junit: app/junit.xml
+
+build_image:
+  tags:
+    - shell
+  needs:
+      - run_unit_test
+  stage: build
+  before_script:
+    - docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD $REGISTRY_URL
+  script:
+    - docker build -f Dockerfile -t $IMAGE_NAME:$IMAGE_VERSION .
+    - echo "Build completed successfully"
+
+
+push_image:
+  tags:
+    - shell
+  needs:
+      - build_image
+  stage: push
+  before_script:
+    - docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD $REGISTRY_URL
+  script:
+    - docker push $IMAGE_NAME:$IMAGE_VERSION
+    - echo "Push completed successfully"
+
+
+deploy_to_dev:
+    tags:
+        - shell
+    needs:
+        - push_image
+    stage: deploy
+    variables:
+        EXPOSED_PORT: 3000
+        INTERNAL_PORT: 3000
+        CONTAINER_NAME: node_app
+    before_script:
+        - echo "Removing old container if it exists"
+        - ssh $DEV_USER_NAME@$DEV_HOST_IP "docker rm -f $CONTAINER_NAME || true"
+    script:
+        - ssh $DEV_USER_NAME@$DEV_HOST_IP "
+            docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD $REGISTRY_URL &&
+            docker run -dit -p 3000:3000 --name $CONTAINER_NAME $IMAGE_NAME:$IMAGE_VERSION"
+    environment:
+        name: dev_deployment
+        url: http://$DEV_HOST_IP:3000
